@@ -31,6 +31,13 @@
     return null;
   }
 
+  function retryWithFreshSignIn(sharedUrl) {
+    sessionStorage.setItem(PENDING_URL_KEY, sharedUrl);
+    sessionStorage.setItem(SILENT_TRIED_KEY, '1');
+    statusText.textContent = 'Saving your link…';
+    LinkVaultAuth.startSignIn(GOOGLE_CLIENT_ID_WEB, SCOPES, { prompt: 'none' });
+  }
+
   signInBtn.addEventListener('click', function () {
     signinPanel.hidden = true;
     statusText.textContent = 'Saving your link…';
@@ -38,11 +45,19 @@
     LinkVaultAuth.startSignIn(GOOGLE_CLIENT_ID_WEB, SCOPES, {});
   });
 
-  async function saveWithToken(accessToken, sharedUrl) {
+  async function saveWithToken(accessToken, sharedUrl, opts) {
+    opts = opts || {};
     try {
       var res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: 'Bearer ' + accessToken },
       });
+      if (res.status === 401) {
+        LinkVaultAuth.clearCachedToken();
+        if (opts.isCached) { retryWithFreshSignIn(sharedUrl); return; }
+        statusText.textContent = 'Sign-in expired';
+        showError('Please try sharing again.');
+        return;
+      }
       var info = res.ok ? await res.json() : null;
       var email = info && info.email ? info.email.toLowerCase() : '';
       if (!email || ALLOWED_OWNER_EMAILS.indexOf(email) === -1) {
@@ -50,6 +65,7 @@
         showError('That Google account isn’t set up for this vault.');
         return;
       }
+      if (!opts.isCached) LinkVaultAuth.cacheToken(accessToken, opts.expiresIn);
 
       var link = LinkVaultCore.newLink(sharedUrl, {});
       if (!link) {
@@ -65,12 +81,30 @@
 
       statusText.textContent = 'Saved to Link Vault ✓';
     } catch (err) {
+      if (err && err.status === 401) {
+        LinkVaultAuth.clearCachedToken();
+        if (opts.isCached) { retryWithFreshSignIn(sharedUrl); return; }
+      }
       statusText.textContent = 'Could not save';
       showError((err && err.message) || 'Something went wrong — open Link Vault and add it manually.');
     }
   }
 
   function init() {
+    var params = new URLSearchParams(window.location.search);
+    var sharedUrlFromQuery = findUrl(params);
+
+    // Fast path: a token already cached from an earlier sign-in (this page
+    // or the dashboard) — skip Google entirely.
+    if (sharedUrlFromQuery) {
+      var cached = LinkVaultAuth.getCachedToken();
+      if (cached) {
+        urlPreview.textContent = sharedUrlFromQuery;
+        saveWithToken(cached, sharedUrlFromQuery, { isCached: true });
+        return;
+      }
+    }
+
     var result = LinkVaultAuth.consumeRedirectResult();
 
     if (result) {
@@ -99,23 +133,19 @@
         return;
       }
       urlPreview.textContent = pendingUrl;
-      saveWithToken(result.accessToken, pendingUrl);
+      saveWithToken(result.accessToken, pendingUrl, { isCached: false, expiresIn: result.expiresIn });
       return;
     }
 
     // Fresh load, directly from the share sheet.
-    var params = new URLSearchParams(window.location.search);
-    var sharedUrl = findUrl(params);
-    if (!sharedUrl) {
+    if (!sharedUrlFromQuery) {
       statusText.textContent = 'Nothing to save';
       showError('Couldn’t find a link in what was shared. Open Link Vault and paste it in manually.');
       return;
     }
 
-    urlPreview.textContent = sharedUrl;
-    sessionStorage.setItem(PENDING_URL_KEY, sharedUrl);
-    sessionStorage.setItem(SILENT_TRIED_KEY, '1');
-    LinkVaultAuth.startSignIn(GOOGLE_CLIENT_ID_WEB, SCOPES, { prompt: 'none' });
+    urlPreview.textContent = sharedUrlFromQuery;
+    retryWithFreshSignIn(sharedUrlFromQuery);
   }
 
   init();

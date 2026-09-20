@@ -156,6 +156,16 @@ roughly every 7 days — you'll just need to click "Sign in with Google"
 again on the dashboard when that happens, and the extension will silently
 re-prompt via `chrome.identity` when it next needs a token.
 
+The dashboard and share-target page cache their access token in
+`localStorage` for its ~1 hour lifetime (`lib/google-auth.js`), so
+repeated shares or dashboard visits within that window skip Google
+entirely instead of re-prompting every time. That's a deliberate
+trade-off — a short-lived, Drive-only-scoped token sitting in
+`localStorage` on your own device for up to an hour, in exchange for not
+re-authenticating on every single share. It's cleared on sign-out, on a
+rejected (non-owner) sign-in, and automatically once Drive itself starts
+rejecting it as expired.
+
 ## Who can actually use the public dashboard URL
 
 The dashboard is a public web page (GitHub Pages has no built-in way to

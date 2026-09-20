@@ -122,6 +122,16 @@
   var SILENT_TRIED_KEY = 'lv_dash_tried_silent';
 
   function initAuth() {
+    // Fast path: a still-valid token cached from an earlier sign-in on
+    // this device (dashboard or share-target, either one) — skip Google
+    // entirely rather than re-prompting every single page load.
+    var cached = LinkVaultAuth.getCachedToken();
+    if (cached) {
+      accessToken = cached;
+      onSignedIn();
+      return;
+    }
+
     var result = LinkVaultAuth.consumeRedirectResult();
     if (result) {
       var wasSilent = sessionStorage.getItem(SILENT_TRIED_KEY) === '1';
@@ -136,6 +146,7 @@
         return;
       }
       accessToken = result.accessToken;
+      LinkVaultAuth.cacheToken(result.accessToken, result.expiresIn);
       onSignedIn();
       return;
     }
@@ -155,6 +166,7 @@
 
   signOutBtn.addEventListener('click', function () {
     LinkVaultAuth.revokeToken(accessToken);
+    LinkVaultAuth.clearCachedToken();
     accessToken = null;
     fileId = null;
     allLinks = [];
@@ -186,12 +198,14 @@
       setStatus('');
       pollTimer = setInterval(refreshFromDrive, POLL_INTERVAL_MS);
     } catch (err) {
+      if (err && err.status === 401) LinkVaultAuth.clearCachedToken();
       setStatus('Could not reach your Google Drive: ' + err.message);
     }
   }
 
   function rejectSignIn() {
     LinkVaultAuth.revokeToken(accessToken);
+    LinkVaultAuth.clearCachedToken();
     accessToken = null;
     signinStatus.hidden = false;
     signinStatus.textContent = 'This vault is private and isn’t set up for that Google account.';
@@ -215,6 +229,7 @@
       allLinks = store.links.slice().sort(function (a, b) { return b.createdAt - a.createdAt; });
       render();
     } catch (err) {
+      if (err && err.status === 401) LinkVaultAuth.clearCachedToken();
       setStatus('Lost the connection to your vault. Reload to reconnect.');
     }
   }

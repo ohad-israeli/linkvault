@@ -1,7 +1,7 @@
 (function () {
   // --- Fill in after creating the "Web application" OAuth client in
   // Google Cloud Console (see README.md). ---
-  var GOOGLE_CLIENT_ID_WEB = 'GOOGLE_CLIENT_ID_WEB.apps.googleusercontent.com';
+  var GOOGLE_CLIENT_ID_WEB = '1018364510823-3phvjv4bv286utncsrnulem3dmggd478.apps.googleusercontent.com';
   var SCOPES = [
     'https://www.googleapis.com/auth/drive',
     'https://www.googleapis.com/auth/userinfo.profile',

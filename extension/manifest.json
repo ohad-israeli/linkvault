@@ -23,7 +23,7 @@
   "permissions": ["identity", "contextMenus", "storage", "activeTab"],
   "host_permissions": ["https://www.googleapis.com/*"],
   "oauth2": {
-    "client_id": "GOOGLE_CLIENT_ID_EXTENSION.apps.googleusercontent.com",
+    "client_id": "1018364510823-gou19t64bc6ge649s12aeos4uh8ps45e.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/drive"]
   }
 }

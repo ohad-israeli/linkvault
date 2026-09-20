@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Link Vault</title>
+<link rel="icon" href="favicon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2F6F5E">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app" style="max-width: 420px;">
+    <header class="top">
+      <h1>Link Vault</h1>
+    </header>
+
+    <div class="panel" id="save-panel" style="text-align:center; display:flex; flex-direction:column; gap:12px; align-items:center; padding: 32px 20px;">
+      <p id="status-text">Saving your link…</p>
+      <div id="url-preview" class="mono" style="word-break: break-all; color: var(--ink-soft); font-size: 0.85rem;"></div>
+      <p class="form-error" id="share-error" hidden></p>
+    </div>
+
+    <div class="panel signin-panel" id="signin-panel" hidden>
+      <p>Sign in to save this link to your vault.</p>
+      <button type="button" class="btn-primary" id="sign-in-btn">Sign in with Google</button>
+    </div>
+
+    <div style="text-align:center;">
+      <a href="index.html" style="color: var(--accent); font-size: 0.85rem; text-decoration: none;">Open Link Vault &rarr;</a>
+    </div>
+  </div>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="lib/linkvault-core.js"></script>
+  <script src="lib/drive-client.js"></script>
+  <script src="share-target.js"></script>
+</body>
+</html>

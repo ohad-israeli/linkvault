@@ -91,6 +91,29 @@ on the box, `cd ~/linkvault && git add -A && git commit -m "..." && git push`.
    dashboard — it should show up there too (the dashboard polls Drive every
    20 seconds while open).
 
+## 5. Save from Android's share sheet
+
+Phones can't run Chrome extensions, but Android Chrome can install the
+dashboard as an app and register it as a **share target** — so you can hit
+Share from inside Instagram/LinkedIn/etc. and pick Link Vault directly,
+instead of copying the link and switching apps.
+
+1. Open the dashboard URL in Chrome on your Android phone.
+2. Tap the **⋮** menu → **Install app** (or **Add to Home screen** on
+   older Chrome versions). This is required — an un-installed tab does not
+   show up in the share sheet.
+3. From any app, tap **Share** on a link/post → **Link Vault**. It opens a
+   small page, extracts the link from whatever the app shared (some apps
+   put it in a plain-text field alongside other words — that's handled
+   automatically), signs you in if needed, and saves it.
+4. It won't have tags or a note yet (there's no field to fill in from the
+   share sheet) — open the dashboard and use **Edit** on that card to add
+   them.
+
+iOS has no equivalent (Safari doesn't let a web page register as a share
+target), so on iPhone the [manual add-a-link flow](#3-publish-the-dashboard-on-github-pages)
+is the only option.
+
 ## Notes on the permission model
 
 Both apps request the broad `.../auth/drive` scope (full Drive access)

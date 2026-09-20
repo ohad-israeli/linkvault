@@ -40,11 +40,21 @@ no backend to run or pay for.
      Copy the generated client ID into `extension/manifest.json`, replacing
      `GOOGLE_CLIENT_ID_EXTENSION.apps.googleusercontent.com` in the
      `oauth2.client_id` field.
-   - **Type: Web application.** Under **Authorized JavaScript origins**,
-     add `https://ohad-israeli.github.io`. Copy the generated client ID
-     into `app.js` (repo root), replacing the
-     `GOOGLE_CLIENT_ID_WEB.apps.googleusercontent.com` placeholder near the
-     top of the file.
+   - **Type: Web application.**
+     - Under **Authorized JavaScript origins**, add
+       `https://ohad-israeli.github.io`.
+     - Under **Authorized redirect URIs**, add both
+       `https://ohad-israeli.github.io/linkvault/` and
+       `https://ohad-israeli.github.io/linkvault/share-target.html`
+       (sign-in is a full-page redirect through Google rather than a
+       popup — see "Why a redirect instead of a popup" below — and each
+       page that can initiate sign-in needs its own exact URL registered
+       here; a mismatch here is what "Error 401: invalid_client" or a
+       redirect_uri_mismatch page from Google means).
+     - Copy the generated client ID into `app.js` (repo root) AND
+       `share-target.js` (repo root), replacing the
+       `GOOGLE_CLIENT_ID_WEB.apps.googleusercontent.com` placeholder near
+       the top of each file (both must match).
 
 Both client IDs live under the same Cloud project — that's fine and
 expected.
@@ -113,6 +123,20 @@ instead of copying the link and switching apps.
 iOS has no equivalent (Safari doesn't let a web page register as a share
 target), so on iPhone the [manual add-a-link flow](#3-publish-the-dashboard-on-github-pages)
 is the only option.
+
+### Why a redirect instead of a popup
+
+Both the dashboard and the share-target page sign in to Google via a
+full-page redirect (`lib/google-auth.js`) rather than the more common
+popup-based flow. That's a deliberate fix, not the default choice: a
+popup-based sign-in got stuck indefinitely ("Saving your link…" forever)
+when launched from Android's share sheet, because the page runs inside the
+installed PWA's own standalone window there, and opening a popup from
+that context isn't reliable. The same window type is used when the
+dashboard itself is launched from its home-screen icon (after "Install
+app"), so the fix applies to both pages, not just the share target. The
+trade-off is the extra "Authorized redirect URIs" setup step above —
+each page that signs in needs its exact URL registered with Google.
 
 ## Notes on the permission model
 

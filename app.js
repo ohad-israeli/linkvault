@@ -116,52 +116,45 @@
   });
 
   // ---------- Auth ----------
-  var tokenClient = null;
-  var silentAttempt = false;
+  // Full-page redirect through Google (see lib/google-auth.js) rather than
+  // a popup — popups don't reliably work when this page is launched from
+  // its installed home-screen icon (standalone PWA window on Android).
+  var SILENT_TRIED_KEY = 'lv_dash_tried_silent';
 
   function initAuth() {
-    if (!window.google || !google.accounts || !google.accounts.oauth2) {
-      signinStatus.hidden = false;
-      signinStatus.textContent = 'Could not load Google sign-in. Check your connection and reload.';
+    var result = LinkVaultAuth.consumeRedirectResult();
+    if (result) {
+      var wasSilent = sessionStorage.getItem(SILENT_TRIED_KEY) === '1';
+      sessionStorage.removeItem(SILENT_TRIED_KEY);
+      if (result.error) {
+        // A failed background re-auth attempt is normal (no session yet) —
+        // only surface an error for a sign-in the person actually clicked.
+        if (!wasSilent) {
+          signinStatus.hidden = false;
+          signinStatus.textContent = 'Sign-in failed: ' + result.error;
+        }
+        return;
+      }
+      accessToken = result.accessToken;
+      onSignedIn();
       return;
     }
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID_WEB,
-      scope: SCOPES,
-      callback: function (resp) {
-        var wasSilent = silentAttempt;
-        silentAttempt = false;
-        if (resp.error) {
-          // A failed background re-auth attempt on page load is normal
-          // (no session yet, or it needs a fresh consent click) — only
-          // surface an error for a sign-in the person actually clicked.
-          if (!wasSilent) {
-            signinStatus.hidden = false;
-            signinStatus.textContent = 'Sign-in failed: ' + resp.error;
-          }
-          return;
-        }
-        accessToken = resp.access_token;
-        onSignedIn();
-      },
-    });
 
-    // Try to pick back up an existing Google session without a click —
-    // this can fail silently (e.g. blocked as a non-gesture popup), in
-    // which case it's a no-op and the normal sign-in button still works.
-    silentAttempt = true;
-    tokenClient.requestAccessToken({ prompt: 'none' });
+    // Fresh load (not a return from Google): try to pick up an existing
+    // session once per tab session before falling back to the button.
+    if (sessionStorage.getItem(SILENT_TRIED_KEY) === '1') return;
+    sessionStorage.setItem(SILENT_TRIED_KEY, '1');
+    LinkVaultAuth.startSignIn(GOOGLE_CLIENT_ID_WEB, SCOPES, { prompt: 'none' });
   }
 
   signInBtn.addEventListener('click', function () {
     signinStatus.hidden = true;
-    tokenClient.requestAccessToken();
+    sessionStorage.removeItem(SILENT_TRIED_KEY);
+    LinkVaultAuth.startSignIn(GOOGLE_CLIENT_ID_WEB, SCOPES, {});
   });
 
   signOutBtn.addEventListener('click', function () {
-    if (accessToken && window.google) {
-      google.accounts.oauth2.revoke(accessToken, function () {});
-    }
+    LinkVaultAuth.revokeToken(accessToken);
     accessToken = null;
     fileId = null;
     allLinks = [];
@@ -198,9 +191,7 @@
   }
 
   function rejectSignIn() {
-    if (accessToken && window.google) {
-      google.accounts.oauth2.revoke(accessToken, function () {});
-    }
+    LinkVaultAuth.revokeToken(accessToken);
     accessToken = null;
     signinStatus.hidden = false;
     signinStatus.textContent = 'This vault is private and isn’t set up for that Google account.';

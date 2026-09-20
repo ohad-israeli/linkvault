@@ -6,6 +6,8 @@
     'https://www.googleapis.com/auth/userinfo.email',
   ].join(' ');
   var ALLOWED_OWNER_EMAILS = ['ohadisra@gmail.com'];
+  var PENDING_URL_KEY = 'lv_share_pending_url';
+  var SILENT_TRIED_KEY = 'lv_share_tried_silent';
 
   var statusText = document.getElementById('status-text');
   var urlPreview = document.getElementById('url-preview');
@@ -29,56 +31,14 @@
     return null;
   }
 
-  var params = new URLSearchParams(window.location.search);
-  var sharedUrl = findUrl(params);
-
-  if (!sharedUrl) {
-    statusText.textContent = 'Nothing to save';
-    showError('Couldn’t find a link in what was shared. Open Link Vault and paste it in manually.');
-    return;
-  }
-
-  urlPreview.textContent = sharedUrl;
-
-  var tokenClient = null;
-  var silentAttempt = false;
-
-  function initAuth() {
-    if (!window.google || !google.accounts || !google.accounts.oauth2) {
-      statusText.textContent = 'Could not load Google sign-in';
-      showError('Check your connection, then open Link Vault and paste the link in manually.');
-      return;
-    }
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID_WEB,
-      scope: SCOPES,
-      callback: function (resp) {
-        var wasSilent = silentAttempt;
-        silentAttempt = false;
-        if (resp.error) {
-          if (!wasSilent) {
-            statusText.textContent = 'Sign-in failed';
-            showError(resp.error);
-          } else {
-            statusText.textContent = 'Sign in to save this link';
-            signinPanel.hidden = false;
-          }
-          return;
-        }
-        saveWithToken(resp.access_token);
-      },
-    });
-    silentAttempt = true;
-    tokenClient.requestAccessToken({ prompt: 'none' });
-  }
-
   signInBtn.addEventListener('click', function () {
     signinPanel.hidden = true;
     statusText.textContent = 'Saving your link…';
-    tokenClient.requestAccessToken();
+    sessionStorage.removeItem(SILENT_TRIED_KEY);
+    LinkVaultAuth.startSignIn(GOOGLE_CLIENT_ID_WEB, SCOPES, {});
   });
 
-  async function saveWithToken(accessToken) {
+  async function saveWithToken(accessToken, sharedUrl) {
     try {
       var res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: 'Bearer ' + accessToken },
@@ -110,5 +70,53 @@
     }
   }
 
-  window.addEventListener('load', initAuth);
+  function init() {
+    var result = LinkVaultAuth.consumeRedirectResult();
+
+    if (result) {
+      var wasSilent = sessionStorage.getItem(SILENT_TRIED_KEY) === '1';
+      sessionStorage.removeItem(SILENT_TRIED_KEY);
+      var pendingUrl = sessionStorage.getItem(PENDING_URL_KEY);
+
+      if (result.error) {
+        if (wasSilent && pendingUrl) {
+          // Silent attempt failed as expected (no session yet) — ask
+          // visibly instead of showing an alarming error.
+          urlPreview.textContent = pendingUrl;
+          statusText.textContent = 'Sign in to save this link';
+          signinPanel.hidden = false;
+          return;
+        }
+        statusText.textContent = 'Sign-in failed';
+        showError(result.error);
+        return;
+      }
+
+      sessionStorage.removeItem(PENDING_URL_KEY);
+      if (!pendingUrl) {
+        statusText.textContent = 'Nothing to save';
+        showError('Lost track of the shared link — open Link Vault and paste it in manually.');
+        return;
+      }
+      urlPreview.textContent = pendingUrl;
+      saveWithToken(result.accessToken, pendingUrl);
+      return;
+    }
+
+    // Fresh load, directly from the share sheet.
+    var params = new URLSearchParams(window.location.search);
+    var sharedUrl = findUrl(params);
+    if (!sharedUrl) {
+      statusText.textContent = 'Nothing to save';
+      showError('Couldn’t find a link in what was shared. Open Link Vault and paste it in manually.');
+      return;
+    }
+
+    urlPreview.textContent = sharedUrl;
+    sessionStorage.setItem(PENDING_URL_KEY, sharedUrl);
+    sessionStorage.setItem(SILENT_TRIED_KEY, '1');
+    LinkVaultAuth.startSignIn(GOOGLE_CLIENT_ID_WEB, SCOPES, { prompt: 'none' });
+  }
+
+  init();
 })();

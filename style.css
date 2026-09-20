@@ -277,7 +277,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   padding-top: 8px;
   border-top: 1px solid var(--surface-2);
 }
-.card-footer-left { display: flex; align-items: center; gap: 4px; }
+.card-footer-left, .card-footer-right { display: flex; align-items: center; gap: 4px; }
 
 .icon-btn {
   background: none;

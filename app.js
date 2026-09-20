@@ -48,9 +48,11 @@
   var tagsInput = document.getElementById('tags-input');
   var noteInput = document.getElementById('note-input');
   var addModal = document.getElementById('add-modal');
+  var modalTitleEl = document.getElementById('modal-title');
   var openAddBtn = document.getElementById('open-add-btn');
   var cancelAddBtn = document.getElementById('cancel-add-btn');
   var closeModalBtn = document.getElementById('close-modal-btn');
+  var editingId = null;
 
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, function (c) {
@@ -76,9 +78,22 @@
     statusArea.innerHTML = msg ? '<div class="status-banner">' + escapeHtml(msg) + '</div>' : '';
   }
 
-  // ---------- Add-link modal ----------
-  function openAddModal() {
+  // ---------- Add/edit-link modal ----------
+  function openAddModal(link) {
     showFormError(null);
+    if (link) {
+      editingId = link.id;
+      modalTitleEl.textContent = 'Edit link';
+      saveBtn.textContent = 'Save changes';
+      urlInput.value = link.url;
+      tagsInput.value = (link.tags || []).join(', ');
+      noteInput.value = link.note || '';
+    } else {
+      editingId = null;
+      modalTitleEl.textContent = 'Add a link';
+      saveBtn.textContent = 'Save link';
+      addForm.reset();
+    }
     addModal.hidden = false;
     urlInput.focus();
   }
@@ -86,10 +101,11 @@
   function closeAddModal() {
     addModal.hidden = true;
     addForm.reset();
+    editingId = null;
     showFormError(null);
   }
 
-  openAddBtn.addEventListener('click', openAddModal);
+  openAddBtn.addEventListener('click', function () { openAddModal(null); });
   cancelAddBtn.addEventListener('click', closeAddModal);
   closeModalBtn.addEventListener('click', closeAddModal);
   addModal.addEventListener('click', function (e) {
@@ -101,6 +117,7 @@
 
   // ---------- Auth ----------
   var tokenClient = null;
+  var silentAttempt = false;
 
   function initAuth() {
     if (!window.google || !google.accounts || !google.accounts.oauth2) {
@@ -112,15 +129,28 @@
       client_id: GOOGLE_CLIENT_ID_WEB,
       scope: SCOPES,
       callback: function (resp) {
+        var wasSilent = silentAttempt;
+        silentAttempt = false;
         if (resp.error) {
-          signinStatus.hidden = false;
-          signinStatus.textContent = 'Sign-in failed: ' + resp.error;
+          // A failed background re-auth attempt on page load is normal
+          // (no session yet, or it needs a fresh consent click) — only
+          // surface an error for a sign-in the person actually clicked.
+          if (!wasSilent) {
+            signinStatus.hidden = false;
+            signinStatus.textContent = 'Sign-in failed: ' + resp.error;
+          }
           return;
         }
         accessToken = resp.access_token;
         onSignedIn();
       },
     });
+
+    // Try to pick back up an existing Google session without a click —
+    // this can fail silently (e.g. blocked as a non-gesture popup), in
+    // which case it's a no-op and the normal sign-in button still works.
+    silentAttempt = true;
+    tokenClient.requestAccessToken({ prompt: 'none' });
   }
 
   signInBtn.addEventListener('click', function () {
@@ -300,7 +330,10 @@
             '<button type="button" class="star-btn' + (l.favorite ? ' active' : '') + '" data-action="toggle-favorite" data-id="' + l.id + '" aria-label="' + (l.favorite ? 'Remove from favorites' : 'Add to favorites') + '" title="Favorite">' + (l.favorite ? '★' : '☆') + '</button>' +
             '<button type="button" class="done-btn' + (l.done ? ' active' : '') + '" data-action="toggle-done" data-id="' + l.id + '">' + (l.done ? '✓ Done' : 'Mark done') + '</button>' +
           '</div>' +
-          '<button type="button" class="icon-btn' + (confirming ? ' confirm' : '') + '" data-action="delete" data-id="' + l.id + '">' + (confirming ? 'Confirm' : 'Delete') + '</button>' +
+          '<div class="card-footer-right">' +
+            '<button type="button" class="icon-btn" data-action="edit" data-id="' + l.id + '">Edit</button>' +
+            '<button type="button" class="icon-btn' + (confirming ? ' confirm' : '') + '" data-action="delete" data-id="' + l.id + '">' + (confirming ? 'Confirm' : 'Delete') + '</button>' +
+          '</div>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -311,10 +344,42 @@
     e.preventDefault();
     showFormError(null);
     if (!accessToken || !fileId) { showFormError('Not connected yet — try again in a moment.'); return; }
-    var link = LinkVaultCore.newLink(urlInput.value, {
-      tags: tagsInput.value.split(','),
-      note: noteInput.value,
-    });
+
+    var tags = tagsInput.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean).slice(0, 10);
+    var note = noteInput.value.trim();
+    var restoreLabel = editingId ? 'Save changes' : 'Save link';
+
+    if (editingId) {
+      var existing = allLinks.find(function (l) { return l.id === editingId; });
+      if (!existing) { closeAddModal(); return; }
+      var u = LinkVaultCore.normalizeUrl(urlInput.value);
+      if (!u) { showFormError('That doesn\'t look like a valid link.'); return; }
+      var before = { url: existing.url, platform: existing.platform, tags: existing.tags, note: existing.note };
+
+      existing.url = u.href;
+      existing.platform = LinkVaultCore.detectPlatform(u.hostname.replace(/^www\./, '')).name;
+      existing.tags = tags;
+      existing.note = note;
+      existing.updatedAt = Date.now();
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      render();
+      try {
+        await persist();
+        closeAddModal();
+      } catch (err) {
+        Object.assign(existing, before);
+        render();
+        showFormError('Could not save those changes — try again.');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = restoreLabel;
+      }
+      return;
+    }
+
+    var link = LinkVaultCore.newLink(urlInput.value, { tags: tags, note: note });
     if (!link) { showFormError('That doesn\'t look like a valid link.'); return; }
 
     saveBtn.disabled = true;
@@ -330,7 +395,7 @@
       showFormError('Could not save that link — try again.');
     } finally {
       saveBtn.disabled = false;
-      saveBtn.textContent = 'Save link';
+      saveBtn.textContent = restoreLabel;
     }
   });
 
@@ -387,6 +452,15 @@
       linkFav.updatedAt = Date.now();
       render();
       try { await persist(); } catch (err) { setStatus('Could not save that change — try again.'); }
+      return;
+    }
+
+    var editBtn = e.target.closest('[data-action="edit"]');
+    if (editBtn) {
+      var idEdit = editBtn.getAttribute('data-id');
+      var linkEdit = allLinks.find(function (l) { return l.id === idEdit; });
+      if (!linkEdit) return;
+      openAddModal(linkEdit);
       return;
     }
 

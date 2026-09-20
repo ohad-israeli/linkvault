@@ -5,8 +5,15 @@
   var SCOPES = [
     'https://www.googleapis.com/auth/drive',
     'https://www.googleapis.com/auth/userinfo.profile',
+    'https://www.googleapis.com/auth/userinfo.email',
   ].join(' ');
   var POLL_INTERVAL_MS = 20000;
+
+  // Belt-and-suspenders on top of the Google OAuth consent screen's
+  // Testing-mode test-user list (the real gate): even if a token is ever
+  // issued to some other account, the app refuses to touch Drive unless
+  // the signed-in email is one of these.
+  var ALLOWED_OWNER_EMAILS = ['ohadisra@gmail.com'];
 
   var accessToken = null;
   var fileId = null;
@@ -108,9 +115,19 @@
   });
 
   async function onSignedIn() {
+    var info = await fetchUserInfo();
+    var email = info && info.email ? info.email.toLowerCase() : '';
+    if (!email || ALLOWED_OWNER_EMAILS.indexOf(email) === -1) {
+      rejectSignIn();
+      return;
+    }
+
     signinPanel.hidden = true;
     appContent.hidden = false;
-    loadUserInfo();
+    userBar.hidden = false;
+    userName.textContent = info.name || info.given_name || email;
+    if (info.picture) { userAvatar.src = info.picture; userAvatar.hidden = false; }
+
     setStatus('Connecting to your Drive…');
     try {
       fileId = await LinkVaultDrive.ensureStoreFile(accessToken);
@@ -122,17 +139,25 @@
     }
   }
 
-  async function loadUserInfo() {
+  function rejectSignIn() {
+    if (accessToken && window.google) {
+      google.accounts.oauth2.revoke(accessToken, function () {});
+    }
+    accessToken = null;
+    signinStatus.hidden = false;
+    signinStatus.textContent = 'This vault is private and isn’t set up for that Google account.';
+  }
+
+  async function fetchUserInfo() {
     try {
       var res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: 'Bearer ' + accessToken },
       });
-      if (!res.ok) return;
-      var info = await res.json();
-      userBar.hidden = false;
-      userName.textContent = info.name || info.given_name || '';
-      if (info.picture) { userAvatar.src = info.picture; userAvatar.hidden = false; }
-    } catch (e) { /* non-critical */ }
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
   }
 
   async function refreshFromDrive() {

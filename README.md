@@ -108,3 +108,31 @@ Because the OAuth consent screen stays in **Testing** mode, tokens expire
 roughly every 7 days — you'll just need to click "Sign in with Google"
 again on the dashboard when that happens, and the extension will silently
 re-prompt via `chrome.identity` when it next needs a token.
+
+## Who can actually use the public dashboard URL
+
+The dashboard is a public web page (GitHub Pages has no built-in way to
+restrict *viewing* it to just you), but that doesn't mean anyone can use
+it or reach your data:
+
+- **The real gate is the OAuth consent screen.** As long as it stays in
+  **Testing** with only your own email under **Test users**, Google itself
+  refuses to let anyone else finish signing in — a stranger who opens the
+  page and clicks "Sign in with Google" gets an access-denied screen from
+  Google before your app ever runs. Don't move the consent screen to
+  "In production" / publish it, and don't add test users you don't trust
+  with drive access.
+- **No shared backend.** Even someone who *did* sign in would only ever
+  create/see a `Link Vault/links.json` in *their own* Drive — there is no
+  path for one signed-in account to read or write another's data.
+- **A client-side allowlist as a second layer.** `app.js`'s
+  `ALLOWED_OWNER_EMAILS` list is checked right after sign-in; anything
+  else gets immediately signed out with a "this vault is private" message,
+  before any Drive call is made. Update that list if you ever want a
+  second account (e.g. a spouse) to have access — they'd also need to be
+  added as an OAuth test user in Cloud Console.
+- The OAuth client ID in `app.js`/`manifest.json` is not a secret (it's
+  meant to be public, unlike a client *secret*, which this app never
+  uses), and it only works from the registered origin
+  (`https://ohad-israeli.github.io`) — a copy of the page hosted elsewhere
+  can't reuse it.

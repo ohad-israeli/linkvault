@@ -8,8 +8,11 @@ beyond your Google login.
 
 Two pieces:
 - **`extension/`** — a Chrome extension for quick-capture while browsing.
-- **`dashboard/`** — a static web page (meant for GitHub Pages) for
-  browsing, searching, tagging, and managing everything you've saved.
+- The repo root (`index.html`, `app.js`, `style.css`, `lib/`) — a static
+  dashboard page (meant for GitHub Pages) for browsing, searching, tagging,
+  and managing everything you've saved. It lives at the repo root rather
+  than its own subfolder because GitHub Pages' "deploy from a branch"
+  mode can only serve `/` or `/docs`, not an arbitrary path.
 
 Both talk directly to the Google Drive API from the browser using OAuth —
 no backend to run or pay for.
@@ -39,7 +42,7 @@ no backend to run or pay for.
      `oauth2.client_id` field.
    - **Type: Web application.** Under **Authorized JavaScript origins**,
      add `https://ohad-israeli.github.io`. Copy the generated client ID
-     into `dashboard/app.js`, replacing the
+     into `app.js` (repo root), replacing the
      `GOOGLE_CLIENT_ID_WEB.apps.googleusercontent.com` placeholder near the
      top of the file.
 
@@ -59,18 +62,19 @@ link to Link Vault** to save it without opening it.
 
 ## 3. Publish the dashboard on GitHub Pages
 
-This lives in its own repo, separate from any existing `<username>.github.io`
-user site — a project repo's Pages site is independent and served at
-`https://<username>.github.io/<repo-name>/`.
+Live at: **https://ohad-israeli.github.io/linkvault/** — separate from the
+`ohad-israeli.github.io` user site (a project repo's Pages site is
+independent).
 
-1. Create a new GitHub repo, e.g. `linkvault`.
-2. Push this project's contents to it (the whole `linkvault/` folder, or at
-   least `dashboard/` and `extension/` — keeping both together is simplest).
-3. Repo **Settings → Pages** → Source: **Deploy from a branch** → Branch:
-   `main`, folder `/dashboard` (or `/` if you'd rather point it at the repo
-   root — adjust the path GitHub asks for accordingly).
-4. Your dashboard will be live at `https://ohad-israeli.github.io/linkvault/`
-   after the first deploy finishes (usually under a minute).
+Already done: repo created at
+[github.com/ohad-israeli/linkvault](https://github.com/ohad-israeli/linkvault)
+(pushed from the `ohad-demo-1` GCP box, since the Mac can't push to GitHub as
+`ohad-israeli`), Pages enabled via **Settings → Pages** → Source: **Deploy
+from a branch** → Branch `main`, folder `/`.
+
+To ship a future change: edit locally on the Mac → `gcloud compute scp
+--tunnel-through-iap --zone us-east1-d --recurse <path> ohad-demo-1:~/` →
+on the box, `cd ~/linkvault && git add -A && git commit -m "..." && git push`.
 
 ## 4. Try it end to end
 

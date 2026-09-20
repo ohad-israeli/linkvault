@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Link Vault</title>
+<link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <h1>Link Vault</h1>
+      <div class="user-bar" id="user-bar" hidden>
+        <img id="user-avatar" alt="" hidden>
+        <span id="user-name"></span>
+        <button type="button" id="sign-out-btn">Sign out</button>
+      </div>
+    </header>
+
+    <div class="panel signin-panel" id="signin-panel">
+      <p>Sign in with the Google account whose Drive should store your links.</p>
+      <button type="button" class="btn-primary" id="sign-in-btn">Sign in with Google</button>
+      <p id="signin-status" class="form-error" hidden></p>
+    </div>
+
+    <div id="app-content" hidden>
+      <div class="panel">
+        <form class="add-form" id="add-form">
+          <div class="add-row">
+            <input type="url" id="url-input" placeholder="Paste a link — instagram.com/p/..., linkedin.com/posts/..., anything" autocomplete="off">
+          </div>
+          <div class="add-row">
+            <input type="text" id="tags-input" placeholder="Tags (optional, comma separated)" autocomplete="off">
+            <input type="text" id="note-input" placeholder="Note (optional)" autocomplete="off">
+            <button type="submit" class="btn-primary" id="save-btn">Save</button>
+          </div>
+          <p class="form-error" id="form-error" hidden></p>
+        </form>
+      </div>
+
+      <div class="filters" id="filters" hidden style="margin-top: 18px;">
+        <input type="text" id="search-input" placeholder="Search saved links...">
+        <div class="chip-row" id="platform-chips"></div>
+        <div class="chip-row" id="status-chips"></div>
+        <div class="tag-filter-banner" id="tag-banner" hidden></div>
+      </div>
+
+      <div style="margin-top: 10px;">
+        <span class="count mono" id="count-label"></span>
+      </div>
+
+      <div id="status-area"></div>
+      <div class="list" id="list" style="margin-top: 10px;"></div>
+    </div>
+  </div>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="lib/linkvault-core.js"></script>
+  <script src="lib/drive-client.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

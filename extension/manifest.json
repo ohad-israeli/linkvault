@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Link Vault",
+  "description": "Save links from Instagram, LinkedIn, and anywhere else, synced to your Link Vault dashboard via Google Drive.",
+  "version": "1.0.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAupr+EDIliImxNn0mP7XVVLERK/+53yxM6LMnGBTY7EopGl2ckacwGQt45J+p0LfGT+gYcLtr2/pq2V8x7Yhyu9yh4OASYMn7teL0ic9aT3FG9OV0RIFnQcGldTc+ucjN9aYUvc2QkT2bgzh5kIQPP7O4BDuC12Zjh8F2ZkCQAStSTvH8BGmobdBDydftcXdL/hJ+tmXFbVVL/Va6YR29edppaGqLVcpZeGsqYjm0wt61ihtgQbwJT92qtbCNWL2OE+FdtLk5+6VPFxv8xbquqqN6cNqkln66eItHpNV2laYMFugL/ollsjnP0fawcKdlHEvUqqCbWo5Pp1A2qnaB6wIDAQAB",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["identity", "contextMenus", "storage", "activeTab"],
+  "host_permissions": ["https://www.googleapis.com/*"],
+  "oauth2": {
+    "client_id": "GOOGLE_CLIENT_ID_EXTENSION.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/drive"]
+  }
+}

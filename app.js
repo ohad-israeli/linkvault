@@ -20,7 +20,7 @@
   var allLinks = [];
   var search = '';
   var platformFilter = 'all';
-  var statusFilter = 'all'; // all | unread | done
+  var statusFilter = 'all'; // all | unread | done | favorite
   var tagFilter = null;
   var pendingDelete = {};
   var pollTimer = null;
@@ -35,8 +35,8 @@
   var signOutBtn = document.getElementById('sign-out-btn');
 
   var listEl = document.getElementById('list');
-  var countLabel = document.getElementById('count-label');
-  var filtersEl = document.getElementById('filters');
+  var toolbarEl = document.getElementById('toolbar');
+  var statsStripEl = document.getElementById('stats-strip');
   var chipsEl = document.getElementById('platform-chips');
   var statusChipsEl = document.getElementById('status-chips');
   var tagBannerEl = document.getElementById('tag-banner');
@@ -47,6 +47,10 @@
   var urlInput = document.getElementById('url-input');
   var tagsInput = document.getElementById('tags-input');
   var noteInput = document.getElementById('note-input');
+  var addModal = document.getElementById('add-modal');
+  var openAddBtn = document.getElementById('open-add-btn');
+  var cancelAddBtn = document.getElementById('cancel-add-btn');
+  var closeModalBtn = document.getElementById('close-modal-btn');
 
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, function (c) {
@@ -71,6 +75,29 @@
   function setStatus(msg) {
     statusArea.innerHTML = msg ? '<div class="status-banner">' + escapeHtml(msg) + '</div>' : '';
   }
+
+  // ---------- Add-link modal ----------
+  function openAddModal() {
+    showFormError(null);
+    addModal.hidden = false;
+    urlInput.focus();
+  }
+
+  function closeAddModal() {
+    addModal.hidden = true;
+    addForm.reset();
+    showFormError(null);
+  }
+
+  openAddBtn.addEventListener('click', openAddModal);
+  cancelAddBtn.addEventListener('click', closeAddModal);
+  closeModalBtn.addEventListener('click', closeAddModal);
+  addModal.addEventListener('click', function (e) {
+    if (e.target === addModal) closeAddModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !addModal.hidden) closeAddModal();
+  });
 
   // ---------- Auth ----------
   var tokenClient = null;
@@ -124,6 +151,7 @@
 
     signinPanel.hidden = true;
     appContent.hidden = false;
+    toolbarEl.hidden = false;
     userBar.hidden = false;
     userName.textContent = info.name || info.given_name || email;
     if (info.picture) { userAvatar.src = info.picture; userAvatar.hidden = false; }
@@ -181,6 +209,7 @@
       if (platformFilter !== 'all' && l.platform !== platformFilter) return false;
       if (statusFilter === 'unread' && l.done) return false;
       if (statusFilter === 'done' && !l.done) return false;
+      if (statusFilter === 'favorite' && !l.favorite) return false;
       if (tagFilter && (!l.tags || l.tags.indexOf(tagFilter) === -1)) return false;
       if (q) {
         var hay = (l.url + ' ' + (l.note || '') + ' ' + (l.tags || []).join(' ')).toLowerCase();
@@ -190,27 +219,39 @@
     });
   }
 
+  function renderStats() {
+    var unread = allLinks.filter(function (l) { return !l.done; }).length;
+    var favorites = allLinks.filter(function (l) { return l.favorite; }).length;
+    statsStripEl.innerHTML = [
+      ['links', allLinks.length],
+      ['unread', unread],
+      ['favorites', favorites],
+    ].map(function (pair) {
+      return '<div class="stat-cell"><span class="stat-num mono">' + pair[1] + '</span><span class="stat-label">' + pair[0] + '</span></div>';
+    }).join('');
+  }
+
   function renderChips() {
     var counts = {};
     allLinks.forEach(function (l) { counts[l.platform] = (counts[l.platform] || 0) + 1; });
     var platforms = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
-    if (platforms.length === 0) { filtersEl.hidden = true; return; }
-    filtersEl.hidden = false;
 
-    var html = '<button type="button" class="chip' + (platformFilter === 'all' ? ' active' : '') + '" data-platform="all">All · ' + allLinks.length + '</button>';
+    var html = '<button type="button" class="chip' + (platformFilter === 'all' ? ' active' : '') + '" data-platform="all">All<span class="chip-count mono">' + allLinks.length + '</span></button>';
     platforms.forEach(function (p) {
       var color = LinkVaultCore.colorForPlatform(p);
       html += '<button type="button" class="chip' + (platformFilter === p ? ' active' : '') + '" data-platform="' + escapeHtml(p) + '">' +
-        '<span class="dot" style="background:' + color + '"></span>' + escapeHtml(p) + ' · ' + counts[p] + '</button>';
+        '<span class="dot" style="background:' + color + '"></span>' + escapeHtml(p) + '<span class="chip-count mono">' + counts[p] + '</span></button>';
     });
     chipsEl.innerHTML = html;
 
     var unreadCount = allLinks.filter(function (l) { return !l.done; }).length;
     var doneCount = allLinks.length - unreadCount;
+    var favCount = allLinks.filter(function (l) { return l.favorite; }).length;
     statusChipsEl.innerHTML =
       '<button type="button" class="chip' + (statusFilter === 'all' ? ' active' : '') + '" data-status="all">All statuses</button>' +
-      '<button type="button" class="chip' + (statusFilter === 'unread' ? ' active' : '') + '" data-status="unread">Unread · ' + unreadCount + '</button>' +
-      '<button type="button" class="chip' + (statusFilter === 'done' ? ' active' : '') + '" data-status="done">Done · ' + doneCount + '</button>';
+      '<button type="button" class="chip' + (statusFilter === 'unread' ? ' active' : '') + '" data-status="unread">Unread<span class="chip-count mono">' + unreadCount + '</span></button>' +
+      '<button type="button" class="chip' + (statusFilter === 'done' ? ' active' : '') + '" data-status="done">Done<span class="chip-count mono">' + doneCount + '</span></button>' +
+      '<button type="button" class="chip' + (statusFilter === 'favorite' ? ' active' : '') + '" data-status="favorite">Favorites<span class="chip-count mono">' + favCount + '</span></button>';
 
     if (tagFilter) {
       tagBannerEl.hidden = false;
@@ -222,7 +263,7 @@
   }
 
   function render() {
-    countLabel.textContent = allLinks.length + (allLinks.length === 1 ? ' link' : ' links');
+    renderStats();
     renderChips();
 
     var filtered = getFiltered();
@@ -230,7 +271,7 @@
     if (allLinks.length === 0) {
       listEl.innerHTML = '<div class="empty-state">' +
         '<span class="big">Your vault is empty</span>' +
-        '<span>Paste any link above — <code>instagram.com</code>, <code>linkedin.com</code>, anything — and save it.</span>' +
+        '<span>Add a link above — <code>instagram.com</code>, <code>linkedin.com</code>, anything — to start.</span>' +
         '</div>';
       return;
     }
@@ -248,16 +289,19 @@
       }).join('');
       return '<div class="card' + (l.done ? ' done' : '') + '" style="--card-color:' + color + '">' +
         '<div class="card-top">' +
-          '<div class="card-meta"><span class="platform-label">' + escapeHtml(l.platform) + '</span></div>' +
-          '<div class="card-actions">' +
-            '<span class="timestamp">' + formatDate(l.createdAt) + '</span>' +
-            '<button type="button" class="icon-btn' + (l.done ? ' active' : '') + '" data-action="toggle-done" data-id="' + l.id + '">' + (l.done ? '✓ Done' : 'Mark done') + '</button>' +
-            '<button type="button" class="icon-btn' + (confirming ? ' confirm' : '') + '" data-action="delete" data-id="' + l.id + '">' + (confirming ? 'Confirm' : 'Delete') + '</button>' +
-          '</div>' +
+          '<span class="platform-label">' + escapeHtml(l.platform) + '</span>' +
+          '<span class="timestamp">' + formatDate(l.createdAt) + '</span>' +
         '</div>' +
         '<a class="card-url" href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(l.url) + '</a>' +
         (l.note ? '<div class="card-note">' + escapeHtml(l.note) + '</div>' : '') +
         (tagsHtml ? '<div class="card-tags">' + tagsHtml + '</div>' : '') +
+        '<div class="card-footer">' +
+          '<div class="card-footer-left">' +
+            '<button type="button" class="star-btn' + (l.favorite ? ' active' : '') + '" data-action="toggle-favorite" data-id="' + l.id + '" aria-label="' + (l.favorite ? 'Remove from favorites' : 'Add to favorites') + '" title="Favorite">' + (l.favorite ? '★' : '☆') + '</button>' +
+            '<button type="button" class="done-btn' + (l.done ? ' active' : '') + '" data-action="toggle-done" data-id="' + l.id + '">' + (l.done ? '✓ Done' : 'Mark done') + '</button>' +
+          '</div>' +
+          '<button type="button" class="icon-btn' + (confirming ? ' confirm' : '') + '" data-action="delete" data-id="' + l.id + '">' + (confirming ? 'Confirm' : 'Delete') + '</button>' +
+        '</div>' +
       '</div>';
     }).join('');
   }
@@ -279,17 +323,14 @@
     render();
     try {
       await persist();
-      urlInput.value = '';
-      tagsInput.value = '';
-      noteInput.value = '';
-      urlInput.focus();
+      closeAddModal();
     } catch (err) {
       allLinks = allLinks.filter(function (l) { return l.id !== link.id; });
       render();
       showFormError('Could not save that link — try again.');
     } finally {
       saveBtn.disabled = false;
-      saveBtn.textContent = 'Save';
+      saveBtn.textContent = 'Save link';
     }
   });
 
@@ -332,6 +373,18 @@
       if (!link1) return;
       link1.done = !link1.done;
       link1.updatedAt = Date.now();
+      render();
+      try { await persist(); } catch (err) { setStatus('Could not save that change — try again.'); }
+      return;
+    }
+
+    var favBtn = e.target.closest('[data-action="toggle-favorite"]');
+    if (favBtn) {
+      var idFav = favBtn.getAttribute('data-id');
+      var linkFav = allLinks.find(function (l) { return l.id === idFav; });
+      if (!linkFav) return;
+      linkFav.favorite = !linkFav.favorite;
+      linkFav.updatedAt = Date.now();
       render();
       try { await persist(); } catch (err) { setStatus('Could not save that change — try again.'); }
       return;

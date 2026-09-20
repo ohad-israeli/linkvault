@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Link Vault</title>
 <link rel="icon" href="favicon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,33 +27,47 @@
     </div>
 
     <div id="app-content" hidden>
-      <div class="panel">
-        <form class="add-form" id="add-form">
-          <div class="add-row">
-            <input type="url" id="url-input" placeholder="Paste a link — instagram.com/p/..., linkedin.com/posts/..., anything" autocomplete="off">
-          </div>
-          <div class="add-row">
-            <input type="text" id="tags-input" placeholder="Tags (optional, comma separated)" autocomplete="off">
-            <input type="text" id="note-input" placeholder="Note (optional)" autocomplete="off">
-            <button type="submit" class="btn-primary" id="save-btn">Save</button>
-          </div>
-          <p class="form-error" id="form-error" hidden></p>
-        </form>
-      </div>
+      <div class="toolbar" id="toolbar" hidden>
+        <div class="stats-strip" id="stats-strip"></div>
 
-      <div class="filters" id="filters" hidden style="margin-top: 18px;">
-        <input type="text" id="search-input" placeholder="Search saved links...">
+        <div class="search-row">
+          <input type="text" id="search-input" placeholder="Search saved links…">
+          <button type="button" class="btn-primary" id="open-add-btn">Add a link</button>
+        </div>
+
         <div class="chip-row" id="platform-chips"></div>
         <div class="chip-row" id="status-chips"></div>
         <div class="tag-filter-banner" id="tag-banner" hidden></div>
       </div>
 
-      <div style="margin-top: 10px;">
-        <span class="count mono" id="count-label"></span>
-      </div>
-
       <div id="status-area"></div>
-      <div class="list" id="list" style="margin-top: 10px;"></div>
+      <div class="grid" id="list"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="add-modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h2 id="modal-title">Add a link</h2>
+        <button type="button" class="modal-close" id="close-modal-btn" aria-label="Close">&times;</button>
+      </div>
+      <form id="add-form">
+        <label for="url-input">URL</label>
+        <input type="url" id="url-input" placeholder="instagram.com/p/…, linkedin.com/posts/…, anything" autocomplete="off">
+
+        <label for="tags-input">Tags</label>
+        <input type="text" id="tags-input" placeholder="optional, comma separated" autocomplete="off">
+
+        <label for="note-input">Note</label>
+        <input type="text" id="note-input" placeholder="optional" autocomplete="off">
+
+        <p class="form-error" id="form-error" hidden></p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="cancel-add-btn">Cancel</button>
+          <button type="submit" class="btn-primary" id="save-btn">Save link</button>
+        </div>
+      </form>
     </div>
   </div>
 
